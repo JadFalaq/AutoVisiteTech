@@ -1,0 +1,350 @@
+version: '3.8'
+
+services:
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - VITE_API_GATEWAY_URL=http://localhost:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - auto-visite-network
+
+  # ==================== API GATEWAY ====================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api-gateway/src:/app/src
+    environment:
+      - PORT=8000
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - PAYMENT_SERVICE_URL=http://payment-service:8002
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:8003
+      - SCAN_SERVICE_URL=http://scan-service:8004
+      - PARSER_SERVICE_URL=http://parser-service:8005
+      - CHATBOT_SERVICE_URL=http://chatbot-service:8006
+      - INSPECTION_SERVICE_URL=http://inspection-service:8007
+      - REPORT_SERVICE_URL=http://report-service:8008
+    depends_on:
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  # ==================== AUTH SERVICE ====================
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/auth-service/src:/app/src
+    environment:
+      - PORT=8001
+      - DB_HOST=auth-db
+      - DB_PORT=5432
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_USER=${AUTH_DB_USER}
+      - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - auth-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${AUTH_DB_NAME}
+      - POSTGRES_USER=${AUTH_DB_USER}
+      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== PAYMENT SERVICE ====================
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./services/payment-service/src:/app/src
+    environment:
+      - PORT=8002
+      - DB_HOST=payment-db
+      - DB_PORT=5432
+      - DB_NAME=${PAYMENT_DB_NAME}
+      - DB_USER=${PAYMENT_DB_USER}
+      - DB_PASSWORD=${PAYMENT_DB_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - payment-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  payment-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${PAYMENT_DB_NAME}
+      - POSTGRES_USER=${PAYMENT_DB_USER}
+      - POSTGRES_PASSWORD=${PAYMENT_DB_PASSWORD}
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== APPOINTMENT SERVICE ====================
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./services/appointment-service/src:/app/src
+    environment:
+      - PORT=8003
+      - DB_HOST=appointment-db
+      - DB_PORT=5432
+      - DB_NAME=${APPOINTMENT_DB_NAME}
+      - DB_USER=${APPOINTMENT_DB_USER}
+      - DB_PASSWORD=${APPOINTMENT_DB_PASSWORD}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - appointment-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  appointment-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${APPOINTMENT_DB_NAME}
+      - POSTGRES_USER=${APPOINTMENT_DB_USER}
+      - POSTGRES_PASSWORD=${APPOINTMENT_DB_PASSWORD}
+    volumes:
+      - appointment-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== SCAN SERVICE ====================
+  scan-service:
+    build:
+      context: ./services/scan-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./services/scan-service/src:/app/src
+      - ./services/scan-service/uploads:/app/uploads
+    environment:
+      - PORT=8004
+      - DB_HOST=scan-db
+      - DB_PORT=5432
+      - DB_NAME=${SCAN_DB_NAME}
+      - DB_USER=${SCAN_DB_USER}
+      - DB_PASSWORD=${SCAN_DB_PASSWORD}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - scan-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  scan-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${SCAN_DB_NAME}
+      - POSTGRES_USER=${SCAN_DB_USER}
+      - POSTGRES_PASSWORD=${SCAN_DB_PASSWORD}
+    volumes:
+      - scan-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== PARSER SERVICE (Python FastAPI) ====================
+  parser-service:
+    build:
+      context: ./services/parser-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./services/parser-service/app:/app/app
+    environment:
+      - PORT=8005
+      - DB_HOST=parser-db
+      - DB_PORT=5432
+      - DB_NAME=${PARSER_DB_NAME}
+      - DB_USER=${PARSER_DB_USER}
+      - DB_PASSWORD=${PARSER_DB_PASSWORD}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - parser-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  parser-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${PARSER_DB_NAME}
+      - POSTGRES_USER=${PARSER_DB_USER}
+      - POSTGRES_PASSWORD=${PARSER_DB_PASSWORD}
+    volumes:
+      - parser-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== CHATBOT SERVICE ====================
+  chatbot-service:
+    build:
+      context: ./services/chatbot-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./services/chatbot-service/src:/app/src
+    environment:
+      - PORT=8006
+      - DB_HOST=chatbot-db
+      - DB_PORT=5432
+      - DB_NAME=${CHATBOT_DB_NAME}
+      - DB_USER=${CHATBOT_DB_USER}
+      - DB_PASSWORD=${CHATBOT_DB_PASSWORD}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - chatbot-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  chatbot-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${CHATBOT_DB_NAME}
+      - POSTGRES_USER=${CHATBOT_DB_USER}
+      - POSTGRES_PASSWORD=${CHATBOT_DB_PASSWORD}
+    volumes:
+      - chatbot-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== INSPECTION SERVICE ====================
+  inspection-service:
+    build:
+      context: ./services/inspection-service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./services/inspection-service/src:/app/src
+    environment:
+      - PORT=8007
+      - DB_HOST=inspection-db
+      - DB_PORT=5432
+      - DB_NAME=${INSPECTION_DB_NAME}
+      - DB_USER=${INSPECTION_DB_USER}
+      - DB_PASSWORD=${INSPECTION_DB_PASSWORD}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - inspection-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  inspection-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${INSPECTION_DB_NAME}
+      - POSTGRES_USER=${INSPECTION_DB_USER}
+      - POSTGRES_PASSWORD=${INSPECTION_DB_PASSWORD}
+    volumes:
+      - inspection-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== REPORT SERVICE ====================
+  report-service:
+    build:
+      context: ./services/report-service
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./services/report-service/src:/app/src
+      - ./services/report-service/reports:/app/reports
+    environment:
+      - PORT=8008
+      - DB_HOST=report-db
+      - DB_PORT=5432
+      - DB_NAME=${REPORT_DB_NAME}
+      - DB_USER=${REPORT_DB_USER}
+      - DB_PASSWORD=${REPORT_DB_PASSWORD}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    depends_on:
+      - report-db
+      - rabbitmq
+    networks:
+      - auto-visite-network
+
+  report-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${REPORT_DB_NAME}
+      - POSTGRES_USER=${REPORT_DB_USER}
+      - POSTGRES_PASSWORD=${REPORT_DB_PASSWORD}
+    volumes:
+      - report-db-data:/var/lib/postgresql/data
+    networks:
+      - auto-visite-network
+
+  # ==================== RABBITMQ ====================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - auto-visite-network
+
+networks:
+  auto-visite-network:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  payment-db-data:
+  appointment-db-data:
+  scan-db-data:
+  parser-db-data:
+  chatbot-db-data:
+  inspection-db-data:
+  report-db-data:
+  rabbitmq-data:
