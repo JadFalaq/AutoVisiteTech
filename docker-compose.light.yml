@@ -1,0 +1,126 @@
+services:
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - VITE_API_GATEWAY_URL=http://localhost:8000
+    depends_on:
+      - api-gateway
+    networks:
+      - auto-visite-network
+
+  # ==================== API GATEWAY ====================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api-gateway/src:/app/src
+    environment:
+      - PORT=8000
+    networks:
+      - auto-visite-network
+
+  # ==================== AUTH SERVICE ====================
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    networks:
+      - auto-visite-network
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/auth-service/src:/app/src
+    environment:
+      - PORT=8001
+      - DB_HOST=auth-db
+      - DB_PORT=5432
+      - DB_NAME=auth_db
+      - DB_USER=auth_user
+      - DB_PASSWORD=auth_password
+      - JWT_SECRET=your-super-secret-jwt-key
+    depends_on:
+      - auth-db
+    networks:
+      - auto-visite-network
+
+  # ==================== APPOINTMENT SERVICE ====================
+  appointment-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: appointment_db
+      POSTGRES_USER: appointment_user
+      POSTGRES_PASSWORD: appointment_password
+    networks:
+      - auto-visite-network
+
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./services/appointment-service/src:/app/src
+    environment:
+      - PORT=8003
+      - DB_HOST=appointment-db
+      - DB_PORT=5432
+      - DB_NAME=appointment_db
+      - DB_USER=appointment_user
+      - DB_PASSWORD=appointment_password
+    depends_on:
+      - appointment-db
+    networks:
+      - auto-visite-network
+
+  # ==================== PAYMENT SERVICE ====================
+  payment-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password
+    networks:
+      - auto-visite-network
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./services/payment-service/src:/app/src
+    environment:
+      - PORT=8002
+      - DB_HOST=payment-db
+      - DB_PORT=5432
+      - DB_NAME=payment_db
+      - DB_USER=payment_user
+      - DB_PASSWORD=payment_password
+    depends_on:
+      - payment-db
+    networks:
+      - auto-visite-network
+
+networks:
+  auto-visite-network:
+    driver: bridge

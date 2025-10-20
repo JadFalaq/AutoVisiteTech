@@ -10,23 +10,61 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8001;
 
-// Database connection
+// Database connection with retry logic
 const pool = new Pool({
   host: process.env.DB_HOST || 'auth-db',
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'auth_db',
   user: process.env.DB_USER || 'auth_user',
   password: process.env.DB_PASSWORD || 'auth_password',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
-// Test database connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Erreur de connexion à la base de données:', err.stack);
-  } else {
-    console.log('✅ Connecté à la base de données PostgreSQL');
-    release();
+// Initialize database tables
+async function initDatabase() {
+  const maxRetries = 10;
+  let retries = 0;
+
+  while (retries < maxRetries) {
+    try {
+      const client = await pool.connect();
+      console.log('✅ Connecté à la base de données PostgreSQL');
+
+      // Create users table if not exists
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          nom VARCHAR(100),
+          prenom VARCHAR(100),
+          telephone VARCHAR(20),
+          role VARCHAR(50) DEFAULT 'client',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      console.log('✅ Table users créée ou déjà existante');
+      client.release();
+      return;
+    } catch (err) {
+      retries++;
+      console.log(`⏳ Tentative de connexion ${retries}/${maxRetries}...`);
+      if (retries >= maxRetries) {
+        console.error('❌ Impossible de se connecter à la base de données:', err.message);
+        process.exit(1);
+      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
+}
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('❌ Erreur inattendue du pool de connexions:', err);
 });
 
 // Middleware
@@ -44,6 +82,15 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { nom, prenom, email, telephone, password } = req.body;
 
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+
     // Vérifier si l'utilisateur existe déjà
     const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
@@ -55,17 +102,26 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insérer le nouvel utilisateur
+    const userRole = req.body.role || 'client'; // Accepter le rôle ou utiliser 'client' par défaut
     const result = await pool.query(
       `INSERT INTO users (email, password, nom, prenom, telephone, role) 
        VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING id, email, nom, prenom, telephone, role`,
-      [email, hashedPassword, nom, prenom, telephone, 'client']
+       RETURNING id, email, nom, prenom, telephone, role, created_at`,
+      [email, hashedPassword, nom || '', prenom || '', telephone || '', userRole]
     );
 
     const user = result.rows[0];
 
+    // Générer un token JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'secret_key_change_in_production',
+      { expiresIn: '24h' }
+    );
+
     res.status(201).json({
       message: 'Inscription réussie',
+      token,
       user: {
         id: user.id,
         email: user.email,
@@ -77,7 +133,7 @@ app.post('/api/auth/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de l\'inscription:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'inscription' });
+    res.status(500).json({ error: 'Erreur lors de l\'inscription', details: error.message });
   }
 });
 
@@ -85,6 +141,11 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis' });
+    }
 
     // Vérifier si l'utilisateur existe
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -123,7 +184,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la connexion:', error);
-    res.status(500).json({ error: 'Erreur lors de la connexion' });
+    res.status(500).json({ error: 'Erreur lors de la connexion', details: error.message });
   }
 });
 
@@ -172,6 +233,16 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🔐 Auth Service running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await initDatabase();
+    app.listen(PORT, () => {
+      console.log(`🔐 Auth Service running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors du démarrage du serveur:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

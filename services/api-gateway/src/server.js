@@ -21,12 +21,20 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', createProxyMiddleware({
   target: 'http://auth-service:8001',
   changeOrigin: true,
+  timeout: 30000,
+  proxyTimeout: 30000,
   pathRewrite: {
     '^/api/auth': '/api/auth'
   },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[PROXY] ${req.method} ${req.url} -> http://auth-service:8001${req.url}`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`[PROXY] Response status: ${proxyRes.statusCode}`);
+  },
   onError: (err, req, res) => {
-    console.error('Proxy error:', err);
-    res.status(500).json({ error: 'Service temporairement indisponible' });
+    console.error('Proxy error:', err.message);
+    res.status(500).json({ error: 'Service temporairement indisponible', details: err.message });
   }
 }));
 

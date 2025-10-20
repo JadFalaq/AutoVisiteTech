@@ -16,29 +16,51 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    console.log('📝 Tentative d\'inscription avec:', formData.email)
+
     if (formData.password !== formData.confirmPassword) {
       alert('Les mots de passe ne correspondent pas')
       return
     }
 
+    if (formData.password.length < 6) {
+      alert('Le mot de passe doit contenir au moins 6 caractères')
+      return
+    }
+
     try {
-      const response = await fetch('http://localhost:8000/api/auth/register', {
+      const url = 'http://localhost:8000/api/auth/register'
+      console.log('📡 Envoi de la requête vers:', url)
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          nom: formData.nom,
+          prenom: formData.prenom,
+          telephone: formData.telephone
+        })
       })
 
+      console.log('📥 Réponse reçue, status:', response.status)
+
       if (response.ok) {
-        alert('Inscription réussie ! Vous pouvez maintenant vous connecter.')
+        const data = await response.json()
+        console.log('✅ Inscription réussie:', data)
+        alert('✅ Inscription réussie ! Vous pouvez maintenant vous connecter.')
         navigate('/login')
       } else {
-        alert('Erreur lors de l\'inscription')
+        const errorData = await response.json()
+        console.error('❌ Erreur serveur:', errorData)
+        alert('❌ Erreur: ' + (errorData.error || 'Erreur lors de l\'inscription'))
       }
     } catch (error) {
-      console.error('Erreur:', error)
-      alert('Erreur de connexion')
+      console.error('❌ Erreur de connexion:', error)
+      alert('❌ Impossible de se connecter au serveur. Vérifiez que les services backend sont lancés.\n\nErreur: ' + error.message)
     }
   }
 

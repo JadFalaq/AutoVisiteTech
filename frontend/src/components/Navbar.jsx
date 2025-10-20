@@ -1,12 +1,49 @@
-import { Link } from 'react-router-dom'
-import { Car, Calendar, User, LogOut } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Car, Calendar, User, LogOut, Shield } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 export default function Navbar() {
-  const isLoggedIn = localStorage.getItem('token')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState(null)
+  const navigate = useNavigate()
+
+  // Vérifier l'état de connexion au chargement et lors des changements
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('token')
+      const userData = localStorage.getItem('user')
+      
+      setIsLoggedIn(!!token)
+      if (userData) {
+        try {
+          setUser(JSON.parse(userData))
+        } catch (e) {
+          setUser(null)
+        }
+      }
+    }
+
+    // Vérifier au chargement
+    checkAuth()
+
+    // Écouter les changements de localStorage
+    window.addEventListener('storage', checkAuth)
+    
+    // Vérifier toutes les secondes (pour détecter les changements dans le même onglet)
+    const interval = setInterval(checkAuth, 1000)
+
+    return () => {
+      window.removeEventListener('storage', checkAuth)
+      clearInterval(interval)
+    }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
-    window.location.href = '/'
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+    navigate('/')
   }
 
   return (
@@ -31,6 +68,15 @@ export default function Navbar() {
 
             {isLoggedIn ? (
               <>
+                {user?.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+                  >
+                    <Shield className="h-5 w-5" />
+                    <span>Admin</span>
+                  </Link>
+                )}
                 <Link
                   to="/mes-reservations"
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
@@ -43,7 +89,7 @@ export default function Navbar() {
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
                 >
                   <User className="h-5 w-5" />
-                  <span>Mon Compte</span>
+                  <span>{user ? `${user.prenom} ${user.nom}` : 'Mon Compte'}</span>
                 </Link>
                 <button
                   onClick={handleLogout}

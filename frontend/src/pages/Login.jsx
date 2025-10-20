@@ -9,30 +9,65 @@ export default function Login() {
     password: ''
   })
 
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setLoading(true)
+    setError('')
+    
+    console.log('🔐 Tentative de connexion avec:', formData.email)
     
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const url = 'http://localhost:8001/api/auth/login'  // Appel direct au service auth
+      console.log('📡 Envoi de la requête vers:', url)
+      console.log('📦 Données envoyées:', { email: formData.email, password: '***' })
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
       })
 
-      const data = await response.json()
+      console.log('📥 Réponse reçue, status:', response.status)
 
-      if (response.ok) {
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        navigate('/dashboard')
-      } else {
-        alert('Email ou mot de passe incorrect')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Erreur serveur' }))
+        console.error('❌ Erreur serveur:', errorData)
+        setError(errorData.error || 'Email ou mot de passe incorrect')
+        setLoading(false)
+        return
       }
+
+      const data = await response.json()
+      console.log('✅ Connexion réussie!')
+      console.log('✅ Token reçu:', data.token ? 'Oui' : 'Non')
+      console.log('✅ User reçu:', data.user ? 'Oui' : 'Non')
+
+      if (!data.token || !data.user) {
+        throw new Error('Token ou utilisateur manquant dans la réponse')
+      }
+
+      // Sauvegarder dans localStorage
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      console.log('💾 Données sauvegardées dans localStorage')
+      
+      // Redirection immédiate
+      console.log('🚀 Redirection vers dashboard')
+      window.location.href = '/dashboard'  // Utiliser window.location pour forcer le rechargement complet
+      
     } catch (error) {
-      console.error('Erreur:', error)
-      alert('Erreur de connexion')
+      console.error('❌ Erreur de connexion:', error)
+      setError('Impossible de se connecter au serveur: ' + error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -49,6 +84,12 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -59,6 +100,8 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+                disabled={loading}
+                autoComplete="off"
               />
             </div>
 
@@ -72,14 +115,17 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+                disabled={loading}
+                autoComplete="new-password"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={loading}
             >
-              Se connecter
+              {loading ? '⏳ Connexion en cours...' : 'Se connecter'}
             </button>
           </form>
 
