@@ -7,7 +7,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3005:3000"
+      - "3000:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
@@ -233,6 +233,7 @@ services:
       - DB_USER=${CHATBOT_DB_USER}
       - DB_PASSWORD=${CHATBOT_DB_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     depends_on:
       - chatbot-db

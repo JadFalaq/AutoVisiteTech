@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
+import ChatBot from './components/ChatBot'
 import Home from './pages/Home'
 import Reservation from './pages/Reservation'
 import Login from './pages/Login'
@@ -24,6 +25,9 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/reservations" element={<AdminReservations />} />
         </Routes>
+        
+        {/* ChatBot disponible sur toutes les pages */}
+        <ChatBot />
       </div>
     </Router>
   )

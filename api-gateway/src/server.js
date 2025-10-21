@@ -87,7 +87,12 @@ app.use('/api/payments', createProxyMiddleware(proxyOptions('http://payment-serv
 app.use('/api/appointments', createProxyMiddleware(proxyOptions('http://appointment-service:8003')));
 app.use('/api/scans', createProxyMiddleware(proxyOptions('http://scan-service:8004')));
 app.use('/api/parser', createProxyMiddleware(proxyOptions('http://parser-service:8005')));
-app.use('/api/chat', createProxyMiddleware(proxyOptions('http://chatbot-service:8006')));
+app.use('/api/chat', createProxyMiddleware({
+  ...proxyOptions('http://chatbot-service:8006'),
+  pathRewrite: {
+    '^/api/chat': '/api/chat' // Garder le chemin complet pour le chatbot
+  }
+}));
 app.use('/api/inspections', createProxyMiddleware(proxyOptions('http://inspection-service:8007')));
 app.use('/api/reports', createProxyMiddleware(proxyOptions('http://report-service:8008')));
 app.use('/api/invoices', createProxyMiddleware(proxyOptions('http://report-service:8008')));

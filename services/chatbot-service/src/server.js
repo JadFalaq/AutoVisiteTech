@@ -2,8 +2,28 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const winston = require('winston');
+const createChatRoutes = require('./routes/chatRoutes');
 
 dotenv.config();
+
+// Configuration du logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 const app = express();
 const PORT = process.env.PORT || 8006;
@@ -28,29 +48,44 @@ async function initDatabase() {
   while (retries < maxRetries) {
     try {
       const client = await pool.connect();
-      console.log('✅ Connecté à la base de données PostgreSQL');
+      logger.info('✅ Connecté à la base de données PostgreSQL');
 
-      // Create conversations table
+      // Create conversations table with enhanced schema
       await client.query(`
         CREATE TABLE IF NOT EXISTS conversations (
           id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL,
+          user_id INTEGER,
           session_id VARCHAR(255) NOT NULL,
           message TEXT NOT NULL,
           response TEXT NOT NULL,
           intent VARCHAR(100),
+          tokens_used INTEGER DEFAULT 0,
+          model VARCHAR(50) DEFAULT 'fallback',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      
+      // Add missing columns if they don't exist
+      await client.query(`
+        ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tokens_used INTEGER DEFAULT 0;
+        ALTER TABLE conversations ADD COLUMN IF NOT EXISTS model VARCHAR(50) DEFAULT 'fallback';
+      `);
+      
+      // Add indexes if they don't exist
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id);
+        CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+        CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
+      `);
 
-      console.log('✅ Table conversations créée ou déjà existante');
+      logger.info('✅ Table conversations et index créés ou déjà existants');
       client.release();
       return;
     } catch (err) {
       retries++;
-      console.log(`⏳ Tentative de connexion ${retries}/${maxRetries}...`);
+      logger.warn(`⏳ Tentative de connexion ${retries}/${maxRetries}...`);
       if (retries >= maxRetries) {
-        console.error('❌ Impossible de se connecter à la base de données:', err.message);
+        logger.error('❌ Impossible de se connecter à la base de données:', err.message);
         process.exit(1);
       }
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -59,152 +94,89 @@ async function initDatabase() {
 }
 
 pool.on('error', (err) => {
-  console.error('❌ Erreur inattendue du pool de connexions:', err);
+  logger.error('❌ Erreur inattendue du pool de connexions:', err);
 });
 
+// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'chatbot-service', timestamp: new Date() });
+// Logging middleware simplifié
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
 });
 
-// Simple chatbot responses
-const responses = {
-  greeting: [
-    'Bonjour! Comment puis-je vous aider aujourd\'hui?',
-    'Salut! Je suis là pour vous aider avec vos visites techniques.',
-    'Bienvenue! Que puis-je faire pour vous?'
-  ],
-  appointment: [
-    'Pour prendre rendez-vous, rendez-vous sur la page de réservation. Je peux vous y diriger si vous le souhaitez.',
-    'Vous pouvez réserver votre visite technique en quelques clics. Voulez-vous que je vous guide?'
-  ],
-  price: [
-    'Le prix d\'une visite technique standard est de 70€. Des services supplémentaires sont disponibles.',
-    'Nos tarifs commencent à 70€ pour un contrôle technique complet.'
-  ],
-  documents: [
-    'Pour votre visite technique, apportez: carte grise, pièce d\'identité, et l\'ancien certificat de contrôle si vous en avez un.',
-    'Documents nécessaires: carte grise du véhicule, pièce d\'identité du propriétaire.'
-  ],
-  default: [
-    'Je ne suis pas sûr de comprendre. Pouvez-vous reformuler votre question?',
-    'Désolé, je n\'ai pas bien compris. Pouvez-vous être plus précis?'
-  ]
-};
-
-function detectIntent(message) {
-  const msg = message.toLowerCase();
-  
-  if (msg.match(/bonjour|salut|hello|hey/)) return 'greeting';
-  if (msg.match(/rendez-vous|réservation|rdv|appointment/)) return 'appointment';
-  if (msg.match(/prix|tarif|coût|combien/)) return 'price';
-  if (msg.match(/document|papier|carte grise/)) return 'documents';
-  
-  return 'default';
-}
-
-function getResponse(intent) {
-  const responseList = responses[intent] || responses.default;
-  return responseList[Math.floor(Math.random() * responseList.length)];
-}
-
-// Chat endpoint
-app.post('/api/chat', async (req, res) => {
+// Health check
+app.get('/health', async (req, res) => {
   try {
-    const { message, user_id, session_id } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: 'Message requis' });
-    }
-
-    // Detect intent and generate response
-    const intent = detectIntent(message);
-    const response = getResponse(intent);
-
-    // Save conversation
-    if (user_id && session_id) {
-      await pool.query(
-        `INSERT INTO conversations (user_id, session_id, message, response, intent) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        [user_id, session_id, message, response, intent]
-      );
-    }
-
-    res.json({
-      message: 'Réponse générée',
-      response,
-      intent,
-      timestamp: new Date()
+    // Test database connection
+    await pool.query('SELECT 1');
+    
+    res.json({ 
+      status: 'OK', 
+      service: 'chatbot-service', 
+      timestamp: new Date(),
+      database: 'connected',
+      openai_configured: !!process.env.OPENAI_API_KEY
     });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors du traitement du message', details: error.message });
-  }
-});
-
-// Get conversation history
-app.get('/api/chat/history', async (req, res) => {
-  try {
-    const { user_id, session_id } = req.query;
-
-    if (!user_id && !session_id) {
-      return res.status(400).json({ error: 'user_id ou session_id requis' });
-    }
-
-    let query = 'SELECT * FROM conversations WHERE ';
-    let params = [];
-
-    if (user_id && session_id) {
-      query += 'user_id = $1 AND session_id = $2 ORDER BY created_at ASC';
-      params = [user_id, session_id];
-    } else if (user_id) {
-      query += 'user_id = $1 ORDER BY created_at DESC LIMIT 50';
-      params = [user_id];
-    } else {
-      query += 'session_id = $1 ORDER BY created_at ASC';
-      params = [session_id];
-    }
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de l\'historique', details: error.message });
-  }
-});
-
-// Clear conversation history
-app.delete('/api/chat/history/:session_id', async (req, res) => {
-  try {
-    const { session_id } = req.params;
-    const result = await pool.query('DELETE FROM conversations WHERE session_id = $1 RETURNING *', [session_id]);
-
-    res.json({
-      message: 'Historique supprimé',
-      deleted_count: result.rowCount
+    res.status(500).json({
+      status: 'ERROR',
+      service: 'chatbot-service',
+      timestamp: new Date(),
+      database: 'disconnected',
+      error: error.message
     });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la suppression de l\'historique', details: error.message });
   }
 });
 
-// Error handling
+// Routes complètes du chatbot
+app.use('/', createChatRoutes(pool));
+
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  logger.error('Erreur non gérée:', err);
+  res.status(500).json({ 
+    error: 'Erreur interne du serveur',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Une erreur est survenue'
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Endpoint non trouvé',
+    path: req.originalUrl,
+    method: req.method
+  });
 });
 
 async function startServer() {
   try {
     await initDatabase();
-    app.listen(PORT, () => {
+    
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🤖 Chatbot Service running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`💬 Chat API: http://localhost:${PORT}/api/chat`);
     });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      logger.info('SIGTERM reçu, arrêt gracieux...');
+      server.close(() => {
+        logger.info('Serveur fermé');
+        pool.end(() => {
+          logger.info('Pool de connexions fermé');
+          process.exit(0);
+        });
+      });
+    });
+
   } catch (error) {
-    console.error('❌ Erreur lors du démarrage du serveur:', error);
+    logger.error('❌ Erreur lors du démarrage du serveur:', error);
     process.exit(1);
   }
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { Calendar, Clock, Shield, CheckCircle, Car, FileText, MessageCircle } from 'lucide-react'
+import { Calendar, Clock, Shield, CheckCircle, Car, FileText, MessageCircle, MapPin, Phone, Mail, Building2 } from 'lucide-react'
+import SafeImage from '../components/SafeImage'
 
 export default function Home() {
   return (
@@ -58,6 +59,121 @@ export default function Home() {
               <p className="text-gray-600">
                 Centre agréé par l'État, contrôle conforme aux normes
               </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Opening Hours Section */}
+      <section className="py-16 bg-blue-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <h2 className="text-3xl font-bold text-center mb-8 text-gray-900">Heures d'ouverture</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <span className="font-semibold text-gray-700">Lundi - Vendredi</span>
+                  <span className="text-blue-600 font-semibold">8h00 - 18h00</span>
+                </div>
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <span className="font-semibold text-gray-700">Samedi</span>
+                  <span className="text-blue-600 font-semibold">8h00 - 16h00</span>
+                </div>
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <span className="font-semibold text-gray-700">Dimanche</span>
+                  <span className="text-red-600 font-semibold">Fermé</span>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 rounded-lg p-6">
+                <h3 className="text-xl font-semibold mb-4 text-blue-800">Informations pratiques</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="h-5 w-5 text-blue-600" />
+                    <span className="text-gray-700">123 Avenue de la République, 75001 Paris</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Phone className="h-5 w-5 text-blue-600" />
+                    <span className="text-gray-700">01 23 45 67 89</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Mail className="h-5 w-5 text-blue-600" />
+                    <span className="text-gray-700">contact@autovisitetech.fr</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* About Us Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl font-bold mb-6 text-gray-900">Notre Centre Auto Visite Tech</h2>
+              <div className="space-y-4 text-gray-600">
+                <p className="text-lg leading-relaxed">
+                  Depuis plus de 15 ans, <strong>Auto Visite Tech</strong> est votre partenaire de confiance pour le contrôle technique automobile. Notre centre moderne et agréé par l'État dispose des équipements les plus récents pour garantir un contrôle précis et fiable.
+                </p>
+                <p className="text-lg leading-relaxed">
+                  Notre équipe de techniciens certifiés met tout en œuvre pour vous offrir un service rapide, professionnel et transparent. Nous nous engageons à respecter les 133 points de contrôle réglementaires avec la plus grande rigueur.
+                </p>
+                <p className="text-lg leading-relaxed">
+                  Grâce à notre système de réservation en ligne innovant, vous pouvez planifier votre visite technique en quelques clics et éviter les files d'attente. Votre satisfaction est notre priorité.
+                </p>
+              </div>
+              
+              <div className="mt-8 grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">15+</div>
+                  <div className="text-sm text-gray-600">Années d'expérience</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">10k+</div>
+                  <div className="text-sm text-gray-600">Véhicules contrôlés</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className="bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg p-6">
+                {/* Image du centre avec SafeImage */}
+                <SafeImage
+                  src="/images/centre-auto-visite-tech.jpg"
+                  alt="Centre Auto Visite Tech - Vue extérieure"
+                  className="w-full h-64 mb-6 shadow-lg"
+                  fallbackIcon={Building2}
+                  showLink={true}
+                  linkText="Voir notre centre"
+                />
+                
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center">Centre Moderne & Agréé</h3>
+                  <p className="text-gray-600 text-center mb-4">Équipements de dernière génération pour un contrôle optimal</p>
+                  
+                  <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-500">✓</span>
+                      <span>Facilement accessible en transport</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-500">✓</span>
+                      <span>Parking gratuit sur place</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-500">✓</span>
+                      <span>Espace d'attente climatisé</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-500">✓</span>
+                      <span>WiFi gratuit</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

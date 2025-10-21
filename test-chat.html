@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Chatbot</title>
+</head>
+<body>
+    <h1>Test Chatbot API</h1>
+    <button onclick="testChat()">Tester le Chat</button>
+    <button onclick="testDirect()">Test Direct (Sans API Gateway)</button>
+    <div id="result"></div>
+
+    <script>
+        async function testChat() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Test en cours...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'Bonjour, test',
+                        session_id: 'test_session'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <h3>✅ Succès!</h3>
+                    <p><strong>Réponse:</strong> ${data.response}</p>
+                    <p><strong>Modèle:</strong> ${data.model}</p>
+                    <p><strong>Intent:</strong> ${data.intent}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>❌ Erreur!</h3>
+                    <p>${error.message}</p>
+                `;
+                console.error('Erreur:', error);
+            }
+        }
+
+        async function testDirect() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Test direct en cours...';
+            
+            try {
+                const response = await fetch('http://localhost:8006/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'Test direct au service',
+                        session_id: 'test_direct'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <h3>✅ Test Direct Réussi!</h3>
+                    <p><strong>Réponse:</strong> ${data.response}</p>
+                    <p><strong>Modèle:</strong> ${data.model}</p>
+                    <p><strong>Intent:</strong> ${data.intent}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>❌ Test Direct Échoué!</h3>
+                    <p>${error.message}</p>
+                `;
+                console.error('Erreur test direct:', error);
+            }
+        }
+    </script>
+</body>
+</html>

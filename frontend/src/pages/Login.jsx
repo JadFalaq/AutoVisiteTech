@@ -20,8 +20,9 @@ export default function Login() {
     console.log('🔐 Tentative de connexion avec:', formData.email)
     
     try {
-      const url = 'http://localhost:8001/api/auth/login'  // Appel direct au service auth
-      console.log('📡 Envoi de la requête vers:', url)
+      // Utiliser l'API Gateway au lieu d'appeler directement le service auth
+      const url = 'http://localhost:8000/api/auth/login'
+      console.log('📡 Envoi de la requête vers l\'API Gateway:', url)
       console.log('📦 Données envoyées:', { email: formData.email, password: '***' })
       
       const response = await fetch(url, {
@@ -38,9 +39,29 @@ export default function Login() {
       console.log('📥 Réponse reçue, status:', response.status)
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erreur serveur' }))
-        console.error('❌ Erreur serveur:', errorData)
-        setError(errorData.error || 'Email ou mot de passe incorrect')
+        let errorMessage = 'Email ou mot de passe incorrect'
+        
+        if (response.status === 404) {
+          errorMessage = 'Service de connexion indisponible. Veuillez réessayer plus tard.'
+        } else if (response.status === 500) {
+          errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.'
+        } else if (response.status === 401) {
+          errorMessage = 'Email ou mot de passe incorrect'
+        } else if (response.status >= 500) {
+          errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.'
+        }
+        
+        try {
+          const errorData = await response.json()
+          if (errorData.error || errorData.message) {
+            errorMessage = errorData.error || errorData.message
+          }
+        } catch (e) {
+          // Garder le message par défaut si on ne peut pas parser la réponse
+        }
+        
+        console.error('❌ Erreur serveur:', { status: response.status, message: errorMessage })
+        setError(errorMessage)
         setLoading(false)
         return
       }
@@ -65,7 +86,16 @@ export default function Login() {
       
     } catch (error) {
       console.error('❌ Erreur de connexion:', error)
-      setError('Impossible de se connecter au serveur: ' + error.message)
+      
+      let errorMessage = 'Impossible de se connecter au serveur'
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = 'Impossible de se connecter au serveur. Vérifiez que l\'API Gateway est démarré sur le port 8000.'
+      } else if (error.message) {
+        errorMessage = `Erreur de connexion: ${error.message}`
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
