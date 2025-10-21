@@ -21,9 +21,14 @@ export default function Login() {
     
     try {
       // Utiliser l'API Gateway au lieu d'appeler directement le service auth
-      const url = 'http://localhost:8000/api/auth/login'
+      const apiGatewayUrl = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8000'
+      const url = `${apiGatewayUrl}/api/auth/login`
       console.log('📡 Envoi de la requête vers l\'API Gateway:', url)
       console.log('📦 Données envoyées:', { email: formData.email, password: '***' })
+      
+      // Créer un AbortController pour le timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 secondes de timeout
       
       const response = await fetch(url, {
         method: 'POST',
@@ -33,8 +38,11 @@ export default function Login() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password
-        })
+        }),
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       console.log('📥 Réponse reçue, status:', response.status)
 
@@ -85,12 +93,47 @@ export default function Login() {
       window.location.href = '/dashboard'  // Utiliser window.location pour forcer le rechargement complet
       
     } catch (error) {
-      console.error('❌ Erreur de connexion:', error)
+      console.error('❌ Erreur de connexion via API Gateway:', error)
+      
+      // Fallback: essayer de se connecter directement au service auth
+      if (error.name === 'AbortError' || error.name === 'TypeError') {
+        console.log('🔄 Tentative de connexion directe au service auth...')
+        try {
+          const directUrl = 'http://localhost:8001/api/auth/login'
+          const directResponse = await fetch(directUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password
+            })
+          })
+          
+          if (directResponse.ok) {
+            const data = await directResponse.json()
+            console.log('✅ Connexion réussie via service auth direct!')
+            
+            // Sauvegarder dans localStorage
+            localStorage.setItem('token', data.token)
+            localStorage.setItem('user', JSON.stringify(data.user))
+            
+            // Redirection
+            window.location.href = '/dashboard'
+            return
+          }
+        } catch (directError) {
+          console.error('❌ Erreur connexion directe:', directError)
+        }
+      }
       
       let errorMessage = 'Impossible de se connecter au serveur'
       
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = 'Impossible de se connecter au serveur. Vérifiez que l\'API Gateway est démarré sur le port 8000.'
+      if (error.name === 'AbortError') {
+        errorMessage = 'La requête a pris trop de temps. Veuillez réessayer.'
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = 'Impossible de se connecter au serveur. Vérifiez que les services sont démarrés.'
       } else if (error.message) {
         errorMessage = `Erreur de connexion: ${error.message}`
       }

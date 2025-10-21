@@ -77,6 +77,14 @@ export default function Dashboard() {
               <h3 className="font-semibold text-lg mb-2">Mes réservations</h3>
               <p className="text-gray-600">Voir mes rendez-vous</p>
             </a>
+
+            <a
+              href="/payment?amount=50.00"
+              className="block p-6 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+            >
+              <h3 className="font-semibold text-lg mb-2">💳 Effectuer un paiement</h3>
+              <p className="text-gray-600">Payer vos services en ligne</p>
+            </a>
           </div>
         </div>
       </div>

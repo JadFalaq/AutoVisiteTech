@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import MesReservations from './pages/MesReservations'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReservations from './pages/AdminReservations'
+import Payment from './pages/Payment'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/mes-reservations" element={<MesReservations />} />
+          <Route path="/payment" element={<Payment />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/reservations" element={<AdminReservations />} />
         </Routes>

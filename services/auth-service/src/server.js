@@ -72,6 +72,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`🔍 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'auth-service', timestamp: new Date() });
@@ -139,11 +145,17 @@ app.post('/api/auth/register', async (req, res) => {
 
 // Login endpoint
 app.post('/api/auth/login', async (req, res) => {
+  console.log('🔐 Tentative de connexion reçue');
+  console.log('📦 Body reçu:', req.body);
+  
   try {
     const { email, password } = req.body;
+    console.log('📧 Email:', email);
+    console.log('🔑 Password présent:', !!password);
 
     // Validation
     if (!email || !password) {
+      console.log('❌ Validation échouée: email ou password manquant');
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
 

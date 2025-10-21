@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const paymentRoutes = require('./routes/paymentRoutes');
+const { authenticateToken } = require('./middleware/auth');
 
 dotenv.config();
 
@@ -67,104 +69,28 @@ pool.on('error', (err) => {
   console.error('❌ Erreur inattendue du pool de connexions:', err);
 });
 
+// Middleware
 app.use(cors());
+
+// Pour les webhooks Stripe, nous devons traiter le raw body
+app.use('/api/payments/webhook', express.raw({type: 'application/json'}));
+
+// Pour les autres routes, utiliser JSON
 app.use(express.json());
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`🔍 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'payment-service', timestamp: new Date() });
 });
 
-// Get all payments for a user
-app.get('/api/payments', async (req, res) => {
-  try {
-    const userId = req.query.user_id;
-    
-    let query = 'SELECT * FROM payments ORDER BY created_at DESC';
-    let params = [];
-    
-    if (userId) {
-      query = 'SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC';
-      params = [userId];
-    }
-    
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des paiements', details: error.message });
-  }
-});
-
-// Create a payment
-app.post('/api/payments', async (req, res) => {
-  try {
-    const { user_id, appointment_id, amount, payment_method } = req.body;
-
-    if (!user_id || !amount) {
-      return res.status(400).json({ error: 'user_id et amount sont requis' });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO payments (user_id, appointment_id, amount, payment_method, status) 
-       VALUES ($1, $2, $3, $4, $5) 
-       RETURNING *`,
-      [user_id, appointment_id || null, amount, payment_method || 'card', 'pending']
-    );
-
-    res.status(201).json({
-      message: 'Paiement créé',
-      payment: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la création du paiement', details: error.message });
-  }
-});
-
-// Update payment status
-app.patch('/api/payments/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, stripe_payment_id } = req.body;
-
-    const result = await pool.query(
-      `UPDATE payments 
-       SET status = $1, stripe_payment_id = $2, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $3 
-       RETURNING *`,
-      [status, stripe_payment_id || null, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Paiement non trouvé' });
-    }
-
-    res.json({
-      message: 'Paiement mis à jour',
-      payment: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la mise à jour du paiement', details: error.message });
-  }
-});
-
-// Get payment by ID
-app.get('/api/payments/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Paiement non trouvé' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du paiement', details: error.message });
-  }
-});
+// Routes de paiement (certaines protégées par authentification)
+app.use('/api/payments', paymentRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

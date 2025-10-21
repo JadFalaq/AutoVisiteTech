@@ -3,6 +3,7 @@ import { Calendar, Car, MapPin, Clock, CreditCard } from 'lucide-react'
 
 export default function Reservation() {
   const [step, setStep] = useState(1)
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     vehicleType: '',
     immatriculation: '',
@@ -38,25 +39,98 @@ export default function Reservation() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setLoading(true)
     
     try {
+      // Récupérer l'utilisateur connecté ou utiliser un ID par défaut
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      const userId = user.id || 1 // ID par défaut pour les tests
+      
+      // Mapper les données du formulaire vers le format attendu par l'API
+      const appointmentData = {
+        user_id: userId,
+        vehicle_registration: formData.immatriculation,
+        vehicle_brand: formData.marque,
+        vehicle_model: formData.modele,
+        vehicle_year: parseInt(formData.annee),
+        centre_name: formData.centre,
+        appointment_date: formData.date,
+        appointment_time: formData.heure,
+        service_type: formData.serviceType,
+        notes: `Contact: ${formData.prenom} ${formData.nom} - Email: ${formData.email} - Tél: ${formData.telephone}`
+      }
+      
+      console.log('📅 Envoi de la réservation:', appointmentData)
+      
+      // Créer un AbortController pour le timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 secondes de timeout
+      
       const response = await fetch('http://localhost:8000/api/appointments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(appointmentData),
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       if (response.ok) {
+        const result = await response.json()
+        console.log('✅ Réservation créée:', result)
         alert('Réservation confirmée ! Vous recevrez un email de confirmation.')
         window.location.href = '/mes-reservations'
       } else {
-        alert('Erreur lors de la réservation. Veuillez réessayer.')
+        const errorData = await response.json()
+        console.error('❌ Erreur serveur:', errorData)
+        alert(`Erreur lors de la réservation: ${errorData.error || 'Veuillez réessayer.'}`)
       }
     } catch (error) {
-      console.error('Erreur:', error)
-      alert('Erreur de connexion. Veuillez réessayer.')
+      console.error('❌ Erreur via API Gateway:', error)
+      
+      // Fallback: essayer de se connecter directement au service appointment
+      if (error.name === 'AbortError' || error.name === 'TypeError') {
+        console.log('🔄 Tentative de réservation directe au service appointment...')
+        try {
+          const directController = new AbortController()
+          const directTimeoutId = setTimeout(() => directController.abort(), 10000)
+          
+          const directResponse = await fetch('http://localhost:8003/api/appointments', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(appointmentData),
+            signal: directController.signal
+          })
+          
+          clearTimeout(directTimeoutId)
+          
+          if (directResponse.ok) {
+            const result = await directResponse.json()
+            console.log('✅ Réservation créée via service direct:', result)
+            alert('Réservation confirmée ! Vous recevrez un email de confirmation.')
+            window.location.href = '/mes-reservations'
+            return
+          }
+        } catch (directError) {
+          console.error('❌ Erreur réservation directe:', directError)
+        }
+      }
+      
+      let errorMessage = 'Erreur de connexion. Veuillez vérifier que les services sont démarrés.'
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'La réservation a pris trop de temps. Veuillez réessayer.'
+      } else if (error.message) {
+        errorMessage = `Erreur: ${error.message}`
+      }
+      
+      alert(errorMessage)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -418,9 +492,17 @@ export default function Reservation() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+                    disabled={loading}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    Confirmer la réservation
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Confirmation en cours...
+                      </>
+                    ) : (
+                      'Confirmer la réservation'
+                    )}
                   </button>
                 </div>
               </div>

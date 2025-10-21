@@ -62,17 +62,23 @@ app.get('/api/status', async (req, res) => {
 const proxyOptions = (target) => ({
   target,
   changeOrigin: true,
+  timeout: 30000, // 30 secondes de timeout
+  proxyTimeout: 30000, // 30 secondes de timeout pour le proxy
   onError: (err, req, res) => {
     console.error(`Proxy error for ${target}:`, err.message);
-    res.status(503).json({
-      error: 'Service temporarily unavailable',
-      service: target,
-      message: err.message
-    });
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: 'Service temporarily unavailable',
+        service: target,
+        message: err.message
+      });
+    }
   },
   onProxyReq: (proxyReq, req, res) => {
     // Log proxy requests
     console.log(`→ Proxying ${req.method} ${req.path} to ${target}`);
+    // Augmenter les timeouts
+    proxyReq.setTimeout(30000);
   },
   onProxyRes: (proxyRes, req, res) => {
     // Log proxy responses
@@ -80,8 +86,35 @@ const proxyOptions = (target) => ({
   }
 });
 
-// Proxy routes to microservices
-app.use('/api/auth', createProxyMiddleware(proxyOptions('http://auth-service:8001')));
+// Proxy routes to microservices with simplified config for auth
+app.use('/api/auth', createProxyMiddleware({
+  target: 'http://auth-service:8001',
+  changeOrigin: true,
+  timeout: 60000,
+  proxyTimeout: 60000,
+  logLevel: 'debug',
+  onError: (err, req, res) => {
+    console.error(`❌ Auth proxy error:`, err.message);
+    console.error(`❌ Error code:`, err.code);
+    console.error(`❌ Error stack:`, err.stack);
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: 'Auth service unavailable',
+        message: err.message,
+        code: err.code
+      });
+    }
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`🔄 Auth proxy request: ${req.method} ${req.path}`);
+    console.log(`🔄 Target: http://auth-service:8001${req.path}`);
+    console.log(`🔄 Headers:`, req.headers);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`✅ Auth proxy response: ${proxyRes.statusCode}`);
+    console.log(`✅ Response headers:`, proxyRes.headers);
+  }
+}));
 app.use('/api/users', createProxyMiddleware(proxyOptions('http://auth-service:8001')));
 app.use('/api/payments', createProxyMiddleware(proxyOptions('http://payment-service:8002')));
 app.use('/api/appointments', createProxyMiddleware(proxyOptions('http://appointment-service:8003')));

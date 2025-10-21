@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Réservation Simple</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 300px; padding: 8px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #result { margin-top: 20px; padding: 10px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Test de Réservation</h1>
+    
+    <form id="reservationForm">
+        <div class="form-group">
+            <label>Immatriculation:</label>
+            <input type="text" id="immatriculation" value="TEST-456-78" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Marque:</label>
+            <input type="text" id="marque" value="Peugeot" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Modèle:</label>
+            <input type="text" id="modele" value="208" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Année:</label>
+            <input type="number" id="annee" value="2021" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Centre:</label>
+            <input type="text" id="centre" value="Centre Casablanca - Maarif" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Date:</label>
+            <input type="date" id="date" value="2025-10-25" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Heure:</label>
+            <input type="time" id="heure" value="14:00" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Nom:</label>
+            <input type="text" id="nom" value="Dupont" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Prénom:</label>
+            <input type="text" id="prenom" value="Jean" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="email" value="jean.dupont@test.com" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Téléphone:</label>
+            <input type="tel" id="telephone" value="0612345678" required>
+        </div>
+        
+        <button type="submit" id="submitBtn">Créer la réservation</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('reservationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('result');
+            
+            submitBtn.textContent = 'Création en cours...';
+            submitBtn.disabled = true;
+            
+            // Récupérer les données du formulaire
+            const appointmentData = {
+                user_id: 1, // ID par défaut
+                vehicle_registration: document.getElementById('immatriculation').value,
+                vehicle_brand: document.getElementById('marque').value,
+                vehicle_model: document.getElementById('modele').value,
+                vehicle_year: parseInt(document.getElementById('annee').value),
+                centre_name: document.getElementById('centre').value,
+                appointment_date: document.getElementById('date').value,
+                appointment_time: document.getElementById('heure').value,
+                service_type: 'controle',
+                notes: `Contact: ${document.getElementById('prenom').value} ${document.getElementById('nom').value} - Email: ${document.getElementById('email').value} - Tél: ${document.getElementById('telephone').value}`
+            };
+            
+            console.log('📅 Données de réservation:', appointmentData);
+            
+            try {
+                // Essayer d'abord via l'API Gateway
+                console.log('🔄 Tentative via API Gateway...');
+                let response = await fetch('http://localhost:8000/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(appointmentData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API Gateway failed');
+                }
+                
+                const result = await response.json();
+                console.log('✅ Réservation créée via API Gateway:', result);
+                resultDiv.innerHTML = '<p style="color: green;">✅ Réservation créée avec succès via API Gateway!</p><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+            } catch (error) {
+                console.log('❌ API Gateway failed, trying direct service...');
+                
+                try {
+                    // Fallback vers le service direct
+                    console.log('🔄 Tentative via service direct...');
+                    const directResponse = await fetch('http://localhost:8003/api/appointments', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(appointmentData)
+                    });
+                    
+                    if (directResponse.ok) {
+                        const result = await directResponse.json();
+                        console.log('✅ Réservation créée via service direct:', result);
+                        resultDiv.innerHTML = '<p style="color: orange;">✅ Réservation créée avec succès via service direct!</p><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    } else {
+                        throw new Error('Direct service also failed');
+                    }
+                } catch (directError) {
+                    console.error('❌ Erreur complète:', directError);
+                    resultDiv.innerHTML = '<p style="color: red;">❌ Erreur: Impossible de créer la réservation</p>';
+                }
+            } finally {
+                submitBtn.textContent = 'Créer la réservation';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
