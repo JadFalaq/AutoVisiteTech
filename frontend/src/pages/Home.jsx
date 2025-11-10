@@ -1,8 +1,50 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Clock, Shield, CheckCircle, Car, FileText, MessageCircle, MapPin, Phone, Mail, Building2 } from 'lucide-react'
+import { Calendar, Clock, Shield, CheckCircle, Car, FileText, MessageCircle, MapPin, Phone, Mail, Building2, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react'
 import SafeImage from '../components/SafeImage'
 
 export default function Home() {
+  const [openFaqIndex, setOpenFaqIndex] = useState(null)
+
+  const faqData = [
+    {
+      question: "Quand dois-je faire mon contrôle technique ?",
+      answer: "Le premier contrôle technique doit être effectué dans les 6 mois précédant le 4ème anniversaire de la première mise en circulation du véhicule. Ensuite, il doit être renouvelé tous les 2 ans. Vous pouvez effectuer le contrôle jusqu'à 6 mois avant la date limite."
+    },
+    {
+      question: "Quels documents dois-je apporter ?",
+      answer: "Vous devez apporter la carte grise (certificat d'immatriculation) du véhicule. Si vous avez déjà effectué un contrôle technique, apportez également le dernier procès-verbal. Pour une contre-visite, n'oubliez pas les factures des réparations effectuées."
+    },
+    {
+      question: "Combien de temps dure le contrôle technique ?",
+      answer: "Un contrôle technique complet dure environ 30 à 45 minutes. Pour une contre-visite, comptez environ 15 à 20 minutes. Nous vous recommandons d'arriver 5 minutes avant votre rendez-vous."
+    },
+    {
+      question: "Que se passe-t-il si mon véhicule est refusé ?",
+      answer: "Si des défaillances majeures sont détectées, vous disposez de 2 mois pour effectuer les réparations et revenir en contre-visite. Pour les défaillances mineures, vous avez simplement une observation sans obligation de contre-visite."
+    },
+    {
+      question: "Puis-je annuler ou modifier mon rendez-vous ?",
+      answer: "Oui, vous pouvez annuler ou modifier votre rendez-vous gratuitement jusqu'à 24h avant l'heure prévue. Connectez-vous à votre compte ou contactez-nous au 01 23 45 67 89."
+    },
+    {
+      question: "Quels moyens de paiement acceptez-vous ?",
+      answer: "Nous acceptons les paiements par carte bancaire (Visa, Mastercard), espèces et chèques. Le paiement en ligne par carte bancaire est également disponible lors de la réservation."
+    },
+    {
+      question: "Le contrôle technique est-il valable partout en France ?",
+      answer: "Oui, le procès-verbal de contrôle technique délivré par notre centre agréé est valable sur tout le territoire français. Il est également reconnu dans tous les pays de l'Union Européenne."
+    },
+    {
+      question: "Proposez-vous des services pour les véhicules utilitaires ?",
+      answer: "Actuellement, nous sommes spécialisés dans le contrôle technique des véhicules légers (voitures particulières). Pour les véhicules utilitaires, nous vous invitons à nous contacter pour connaître nos partenaires spécialisés."
+    }
+  ]
+
+  const toggleFaq = (index) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index)
+  }
+
   return (
     <div>
       {/* Hero Section */}
@@ -235,6 +277,76 @@ export default function Home() {
                   <p className="text-blue-600 font-semibold">Gratuit</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+              <HelpCircle className="h-8 w-8 text-blue-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Questions Fréquentes</h2>
+            <p className="text-lg text-gray-600">
+              Trouvez rapidement les réponses à vos questions sur le contrôle technique
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqData.map((faq, index) => (
+              <div
+                key={index}
+                className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              >
+                <button
+                  onClick={() => toggleFaq(index)}
+                  className="w-full px-6 py-4 flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+                >
+                  <span className="font-semibold text-gray-900 pr-4">
+                    {faq.question}
+                  </span>
+                  {openFaqIndex === index ? (
+                    <ChevronUp className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                  )}
+                </button>
+                
+                {openFaqIndex === index && (
+                  <div className="px-6 pb-4">
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-gray-600 leading-relaxed">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <p className="text-gray-600 mb-4">
+              Vous avez d'autres questions ?
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href="tel:0123456789"
+                className="inline-flex items-center justify-center px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition font-semibold"
+              >
+                <Phone className="h-5 w-5 mr-2" />
+                Appelez-nous
+              </a>
+              <a
+                href="mailto:contact@autovisitetech.fr"
+                className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+              >
+                <Mail className="h-5 w-5 mr-2" />
+                Contactez-nous
+              </a>
             </div>
           </div>
         </div>

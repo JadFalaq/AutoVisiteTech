@@ -27,7 +27,7 @@ docker-compose up --build
 
 Une fois tous les services démarrés, ouvrez votre navigateur :
 
-**🌐 Frontend** : http://localhost:3000
+**🌐 Frontend** : C
 
 ## 📊 Vérifier que tout fonctionne
 
