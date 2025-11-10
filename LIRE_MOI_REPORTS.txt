@@ -1,0 +1,151 @@
+═══════════════════════════════════════════════════════════════
+  PAGE RAPPORTS - SOLUTION ULTRA-SIMPLE
+═══════════════════════════════════════════════════════════════
+
+PROBLÈME : Le lien "Rapports & Factures" n'apparaît pas dans la navbar
+
+RAISON : Le lien n'apparaît QUE si vous êtes CONNECTÉ !
+
+═══════════════════════════════════════════════════════════════
+  SOLUTION EN 3 ÉTAPES
+═══════════════════════════════════════════════════════════════
+
+ÉTAPE 1 : Démarrer le backend
+────────────────────────────────────────────────────────────────
+Ouvrez PowerShell et tapez :
+
+    cd "C:\Users\falaq\OneDrive\Desktop\Jad Falaq\Originalook\AutoVisiteTech"
+    docker-compose up -d api-gateway report-service
+
+Attendez 10 secondes.
+
+
+ÉTAPE 2 : Démarrer le frontend
+────────────────────────────────────────────────────────────────
+Ouvrez un NOUVEAU PowerShell et tapez :
+
+    cd "C:\Users\falaq\OneDrive\Desktop\Jad Falaq\Originalook\AutoVisiteTech\frontend"
+    npm run dev
+
+
+ÉTAPE 3 : Ouvrir la page
+────────────────────────────────────────────────────────────────
+Ouvrez votre navigateur et tapez :
+
+    http://localhost:3000/reports
+
+Vous DEVEZ voir une page avec "📄 Rapports & Factures"
+
+═══════════════════════════════════════════════════════════════
+  TESTS RAPIDES
+═══════════════════════════════════════════════════════════════
+
+TEST 1 : Page HTML de test
+────────────────────────────────────────────────────────────────
+Ouvrez ce fichier dans votre navigateur :
+
+    test-reports-page.html
+
+Cette page teste automatiquement l'API et affiche les résultats.
+
+
+TEST 2 : Script de test
+────────────────────────────────────────────────────────────────
+Double-cliquez sur :
+
+    TEST_FRONTEND_REPORTS.bat
+
+Il vérifie que tout est en place.
+
+
+TEST 3 : API directe
+────────────────────────────────────────────────────────────────
+Dans PowerShell :
+
+    curl http://localhost:8000/api/reports
+
+Vous devez voir [] ou une liste JSON.
+
+═══════════════════════════════════════════════════════════════
+  POURQUOI LE LIEN N'APPARAÎT PAS DANS LA NAVBAR ?
+═══════════════════════════════════════════════════════════════
+
+Le lien "Rapports & Factures" est dans le code, MAIS il n'apparaît
+que si vous êtes CONNECTÉ.
+
+POUR VOIR LE LIEN :
+1. Allez sur http://localhost:3000/login
+2. Connectez-vous
+3. Le lien apparaît dans la navbar
+
+OU ALORS :
+Tapez directement l'URL dans votre navigateur :
+    http://localhost:3000/reports
+
+═══════════════════════════════════════════════════════════════
+  VÉRIFICATIONS
+═══════════════════════════════════════════════════════════════
+
+✓ Backend démarré ?
+  → docker ps | findstr "api-gateway report-service"
+
+✓ Frontend démarré ?
+  → Regardez le terminal, vous devez voir "Local: http://localhost:3000"
+
+✓ Page accessible ?
+  → http://localhost:3000/reports
+
+✓ API fonctionne ?
+  → http://localhost:8000/api/reports
+
+═══════════════════════════════════════════════════════════════
+  FICHIERS IMPORTANTS
+═══════════════════════════════════════════════════════════════
+
+SOLUTION_SIMPLE_REPORTS.md  → Guide détaillé
+DEBUG_REPORTS_PAGE.md        → Guide de dépannage complet
+test-reports-page.html       → Page de test HTML
+TEST_FRONTEND_REPORTS.bat    → Script de vérification
+
+═══════════════════════════════════════════════════════════════
+  EN CAS DE PROBLÈME
+═══════════════════════════════════════════════════════════════
+
+1. Ouvrez test-reports-page.html dans votre navigateur
+2. Cliquez sur les boutons de test
+3. Regardez les logs en bas de page
+4. Ça vous dira EXACTEMENT où est le problème
+
+OU
+
+1. Ouvrez http://localhost:3000/reports
+2. Appuyez sur F12 (console du navigateur)
+3. Regardez les erreurs en rouge
+4. Copiez l'erreur
+
+═══════════════════════════════════════════════════════════════
+  COMMANDES RAPIDES
+═══════════════════════════════════════════════════════════════
+
+# Tout démarrer
+docker-compose up -d
+cd frontend && npm run dev
+
+# Tout arrêter
+docker-compose down
+Ctrl+C dans le terminal du frontend
+
+# Voir les logs
+docker logs api-gateway
+docker logs report-service
+
+═══════════════════════════════════════════════════════════════
+
+LA PAGE DOIT FONCTIONNER !
+
+Si ce n'est pas le cas :
+1. Ouvrez test-reports-page.html
+2. Ou regardez la console du navigateur (F12)
+3. Ou lisez SOLUTION_SIMPLE_REPORTS.md
+
+═══════════════════════════════════════════════════════════════

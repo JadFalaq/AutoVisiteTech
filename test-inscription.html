@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Inscription</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        input, button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test d'Inscription</h1>
+    <form id="registerForm">
+        <input type="text" id="nom" placeholder="Nom" required>
+        <input type="text" id="prenom" placeholder="Prénom" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="tel" id="telephone" placeholder="Téléphone" required>
+        <input type="password" id="password" placeholder="Mot de passe (min 6 caractères)" required minlength="6">
+        <button type="submit">S'inscrire</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Inscription en cours...';
+            resultDiv.className = '';
+            
+            const data = {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                email: document.getElementById('email').value,
+                telephone: document.getElementById('telephone').value,
+                password: document.getElementById('password').value
+            };
+            
+            console.log('📝 Envoi des données:', data);
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('📥 Réponse reçue, status:', response.status);
+                
+                const result = await response.json();
+                console.log('📦 Données reçues:', result);
+                
+                if (response.ok) {
+                    resultDiv.textContent = '✅ Inscription réussie ! Token: ' + result.token.substring(0, 20) + '...';
+                    resultDiv.className = 'success';
+                    document.getElementById('registerForm').reset();
+                } else {
+                    resultDiv.textContent = '❌ Erreur: ' + (result.error || 'Erreur inconnue');
+                    resultDiv.className = 'error';
+                }
+            } catch (error) {
+                console.error('❌ Erreur:', error);
+                resultDiv.textContent = '❌ Erreur de connexion: ' + error.message;
+                resultDiv.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>

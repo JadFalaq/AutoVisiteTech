@@ -4,6 +4,7 @@ import { UserPlus } from 'lucide-react'
 
 export default function Register() {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -17,6 +18,7 @@ export default function Register() {
     e.preventDefault()
 
     console.log('📝 Tentative d\'inscription avec:', formData.email)
+    console.log('📋 Données du formulaire:', { ...formData, password: '***', confirmPassword: '***' })
 
     if (formData.password !== formData.confirmPassword) {
       alert('Les mots de passe ne correspondent pas')
@@ -28,6 +30,7 @@ export default function Register() {
       return
     }
 
+    setLoading(true)
     try {
       const url = 'http://localhost:8000/api/auth/register'
       console.log('📡 Envoi de la requête vers:', url)
@@ -60,7 +63,10 @@ export default function Register() {
       }
     } catch (error) {
       console.error('❌ Erreur de connexion:', error)
+      console.error('❌ Stack:', error.stack)
       alert('❌ Impossible de se connecter au serveur. Vérifiez que les services backend sont lancés.\n\nErreur: ' + error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -162,9 +168,10 @@ export default function Register() {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              S'inscrire
+              {loading ? 'Inscription en cours...' : "S'inscrire"}
             </button>
           </form>
 

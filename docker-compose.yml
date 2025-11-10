@@ -21,12 +21,12 @@ services:
   # ==================== API GATEWAY ====================
   api-gateway:
     build:
-      context: ./api-gateway
+      context: ./services/api-gateway
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./api-gateway/src:/app/src
+      - ./services/api-gateway/src:/app/src
     environment:
       - PORT=8000
       - JWT_SECRET=${JWT_SECRET}

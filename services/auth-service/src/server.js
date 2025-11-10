@@ -85,11 +85,17 @@ app.get('/health', (req, res) => {
 
 // Register endpoint
 app.post('/api/auth/register', async (req, res) => {
+  console.log('📝 Requête d\'inscription reçue');
+  console.log('📦 Body:', JSON.stringify(req.body));
+  console.log('📋 Headers:', JSON.stringify(req.headers));
+  
   try {
     const { nom, prenom, email, telephone, password } = req.body;
+    console.log('✅ Données extraites:', { nom, prenom, email, telephone, password: password ? '***' : undefined });
 
     // Validation
     if (!email || !password) {
+      console.log('❌ Validation échouée: email ou password manquant');
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
 
@@ -125,6 +131,7 @@ app.post('/api/auth/register', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    console.log('✅ Inscription réussie pour:', email);
     res.status(201).json({
       message: 'Inscription réussie',
       token,
@@ -138,8 +145,11 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de l\'inscription:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'inscription', details: error.message });
+    console.error('❌ Erreur lors de l\'inscription:', error);
+    console.error('❌ Stack:', error.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erreur lors de l\'inscription', details: error.message });
+    }
   }
 });
 

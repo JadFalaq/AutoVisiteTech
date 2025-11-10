@@ -28,13 +28,10 @@ app.get('/health', (req, res) => {
 // Manual proxy function
 function proxyRequest(targetHost, targetPort) {
   return async (req, res) => {
-    // Utiliser originalUrl pour garder le chemin complet
-    const targetPath = req.originalUrl || req.url;
-    
     const options = {
       hostname: targetHost,
       port: targetPort,
-      path: targetPath,
+      path: req.url,
       method: req.method,
       headers: {
         ...req.headers,
@@ -42,7 +39,7 @@ function proxyRequest(targetHost, targetPort) {
       }
     };
 
-    console.log(`[PROXY] ${req.method} ${targetPath} -> http://${targetHost}:${targetPort}${targetPath}`);
+    console.log(`[PROXY] ${req.method} ${req.url} -> http://${targetHost}:${targetPort}${req.url}`);
 
     const proxyReq = http.request(options, (proxyRes) => {
       console.log(`[PROXY] Response: ${proxyRes.statusCode}`);
@@ -90,7 +87,6 @@ app.use('/api/parser', proxyRequest('parser-service', 8005));
 app.use('/api/chat', proxyRequest('chatbot-service', 8006));
 app.use('/api/inspections', proxyRequest('inspection-service', 8007));
 app.use('/api/reports', proxyRequest('report-service', 8008));
-app.use('/api/invoices', proxyRequest('report-service', 8008));
 
 // Error handling
 app.use((err, req, res, next) => {

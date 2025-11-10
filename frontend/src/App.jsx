@@ -10,6 +10,8 @@ import MesReservations from './pages/MesReservations'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReservations from './pages/AdminReservations'
 import Payment from './pages/Payment'
+import Documents from './pages/Documents'
+import ReportsPage from './pages/ReportsPage'
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/mes-reservations" element={<MesReservations />} />
           <Route path="/payment" element={<Payment />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/reservations" element={<AdminReservations />} />
         </Routes>

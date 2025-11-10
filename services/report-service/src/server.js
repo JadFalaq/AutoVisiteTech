@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const path = require('path');
+const reportController = require('./controllers/reportController');
+const invoiceController = require('./controllers/invoiceController');
+const { connectRabbitMQ, consumeQueue } = require('./messaging/rabbitmq');
 
 dotenv.config();
 
@@ -87,234 +91,62 @@ pool.on('error', (err) => {
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'report-service', timestamp: new Date() });
+  res.json({ 
+    status: 'OK', 
+    service: 'report-service', 
+    timestamp: new Date(),
+    features: ['pdf_generation', 'email_sending', 'rabbitmq_integration']
+  });
 });
+
+// ==================== ROUTES RAPPORTS ====================
 
 // Get all reports
-app.get('/api/reports', async (req, res) => {
-  try {
-    const userId = req.query.user_id;
-    const inspectionId = req.query.inspection_id;
-    
-    let query = 'SELECT * FROM reports ORDER BY created_at DESC';
-    let params = [];
-    
-    if (userId) {
-      query = 'SELECT * FROM reports WHERE user_id = $1 ORDER BY created_at DESC';
-      params = [userId];
-    } else if (inspectionId) {
-      query = 'SELECT * FROM reports WHERE inspection_id = $1 ORDER BY created_at DESC';
-      params = [inspectionId];
-    }
-    
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des rapports', details: error.message });
-  }
-});
+app.get('/api/reports', (req, res) => reportController.getAllReports(req, res, pool));
 
-// Generate report
-app.post('/api/reports', async (req, res) => {
-  try {
-    const {
-      inspection_id,
-      user_id,
-      report_type
-    } = req.body;
-
-    if (!inspection_id || !user_id) {
-      return res.status(400).json({ error: 'inspection_id et user_id sont requis' });
-    }
-
-    // Simulate PDF generation
-    const file_name = `report_${inspection_id}_${Date.now()}.pdf`;
-    const file_path = `/reports/${file_name}`;
-    const file_url = `http://localhost:${PORT}/downloads/${file_name}`;
-
-    const result = await pool.query(
-      `INSERT INTO reports (
-        inspection_id, user_id, report_type, file_name, file_path, file_url, status, generated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-      RETURNING *`,
-      [
-        inspection_id,
-        user_id,
-        report_type || 'inspection_certificate',
-        file_name,
-        file_path,
-        file_url,
-        'completed',
-        new Date()
-      ]
-    );
-
-    res.status(201).json({
-      message: 'Rapport généré avec succès',
-      report: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la génération du rapport', details: error.message });
-  }
-});
+// Generate report (avec PDF réel)
+app.post('/api/reports', (req, res) => reportController.generateReport(req, res, pool));
 
 // Get report by ID
-app.get('/api/reports/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM reports WHERE id = $1', [id]);
+app.get('/api/reports/:id', (req, res) => reportController.getReportById(req, res, pool));
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Rapport non trouvé' });
-    }
+// Download report
+app.get('/api/reports/download/:filename', (req, res) => reportController.downloadReport(req, res, pool));
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération du rapport', details: error.message });
-  }
-});
+// Resend report email
+app.post('/api/reports/:id/resend', (req, res) => reportController.resendReportEmail(req, res, pool));
 
 // Delete report
-app.delete('/api/reports/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('DELETE FROM reports WHERE id = $1 RETURNING *', [id]);
+app.delete('/api/reports/:id', (req, res) => reportController.deleteReport(req, res, pool));
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Rapport non trouvé' });
-    }
-
-    res.json({
-      message: 'Rapport supprimé',
-      report: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la suppression du rapport', details: error.message });
-  }
-});
+// ==================== ROUTES FACTURES ====================
 
 // Get all invoices
-app.get('/api/invoices', async (req, res) => {
-  try {
-    const userId = req.query.user_id;
-    
-    let query = 'SELECT * FROM invoices ORDER BY created_at DESC';
-    let params = [];
-    
-    if (userId) {
-      query = 'SELECT * FROM invoices WHERE user_id = $1 ORDER BY created_at DESC';
-      params = [userId];
-    }
-    
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des factures', details: error.message });
-  }
-});
+app.get('/api/invoices', (req, res) => invoiceController.getAllInvoices(req, res, pool));
 
-// Create invoice
-app.post('/api/invoices', async (req, res) => {
-  try {
-    const {
-      user_id,
-      appointment_id,
-      payment_id,
-      amount,
-      tax_rate
-    } = req.body;
+// Get overdue invoices
+app.get('/api/invoices/overdue', (req, res) => invoiceController.getOverdueInvoices(req, res, pool));
 
-    if (!user_id || !amount) {
-      return res.status(400).json({ error: 'user_id et amount sont requis' });
-    }
-
-    const invoice_number = `INV-${Date.now()}`;
-    const tax_amount = amount * (tax_rate || 0.20); // 20% TVA par défaut
-    const total_amount = amount + tax_amount;
-    const due_date = new Date();
-    due_date.setDate(due_date.getDate() + 30); // 30 jours
-
-    const result = await pool.query(
-      `INSERT INTO invoices (
-        user_id, appointment_id, payment_id, invoice_number, amount, tax_amount, total_amount, status, due_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-      RETURNING *`,
-      [
-        user_id,
-        appointment_id || null,
-        payment_id || null,
-        invoice_number,
-        amount,
-        tax_amount,
-        total_amount,
-        'pending',
-        due_date
-      ]
-    );
-
-    res.status(201).json({
-      message: 'Facture créée avec succès',
-      invoice: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la création de la facture', details: error.message });
-  }
-});
+// Create invoice (avec PDF réel)
+app.post('/api/invoices', (req, res) => invoiceController.createInvoice(req, res, pool));
 
 // Get invoice by ID
-app.get('/api/invoices/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM invoices WHERE id = $1', [id]);
+app.get('/api/invoices/:id', (req, res) => invoiceController.getInvoiceById(req, res, pool));
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Facture non trouvée' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de la facture', details: error.message });
-  }
-});
+// Download invoice
+app.get('/api/invoices/download/:filename', (req, res) => invoiceController.downloadInvoice(req, res, pool));
 
 // Update invoice status
-app.patch('/api/invoices/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+app.patch('/api/invoices/:id', (req, res) => invoiceController.updateInvoiceStatus(req, res, pool));
 
-    const paid_at = status === 'paid' ? new Date() : null;
+// Send payment reminder
+app.post('/api/invoices/:id/reminder', (req, res) => invoiceController.sendPaymentReminder(req, res, pool));
 
-    const result = await pool.query(
-      `UPDATE invoices 
-       SET status = $1, paid_at = $2, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $3 
-       RETURNING *`,
-      [status, paid_at, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Facture non trouvée' });
-    }
-
-    res.json({
-      message: 'Facture mise à jour',
-      invoice: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({ error: 'Erreur lors de la mise à jour de la facture', details: error.message });
-  }
-});
+// Resend invoice email
+app.post('/api/invoices/:id/resend', (req, res) => invoiceController.resendInvoiceEmail(req, res, pool));
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -322,16 +154,128 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+// ==================== GESTIONNAIRES D'ÉVÉNEMENTS RABBITMQ ====================
+
+/**
+ * Gérer les événements d'inspection terminée
+ */
+async function handleInspectionCompleted(data) {
+  console.log('🔔 Inspection terminée reçue:', data);
+  
+  try {
+    // Générer automatiquement le rapport
+    if (data.inspection_data && data.user_id) {
+      const timestamp = Date.now();
+      const fileName = `certificate_${data.inspection_id}_${timestamp}.pdf`;
+      const filePath = path.join(__dirname, '../reports', fileName);
+      
+      const { generateInspectionCertificate } = require('./utils/pdfGenerator');
+      await generateInspectionCertificate(data.inspection_data, filePath);
+      
+      const fileUrl = `${process.env.API_URL || 'http://localhost:8008'}/api/reports/download/${fileName}`;
+      
+      await pool.query(
+        `INSERT INTO reports (
+          inspection_id, user_id, report_type, file_name, file_path, file_url, status, generated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          data.inspection_id,
+          data.user_id,
+          'inspection_certificate',
+          fileName,
+          filePath,
+          fileUrl,
+          'completed',
+          new Date()
+        ]
+      );
+      
+      console.log('✅ Rapport généré automatiquement pour inspection', data.inspection_id);
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la génération automatique du rapport:', error);
+  }
+}
+
+/**
+ * Gérer les événements de paiement réussi
+ */
+async function handlePaymentSucceeded(data) {
+  console.log('🔔 Paiement réussi reçu:', data);
+  
+  try {
+    // Créer automatiquement une facture
+    if (data.user_id && data.amount) {
+      const invoice_number = `INV-${Date.now()}`;
+      const tax_amount = data.amount * 0.20;
+      const total_amount = data.amount + tax_amount;
+      const due_date = new Date();
+      due_date.setDate(due_date.getDate() + 30);
+      
+      await pool.query(
+        `INSERT INTO invoices (
+          user_id, appointment_id, payment_id, invoice_number, amount, tax_amount, total_amount, status, due_date, paid_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          data.user_id,
+          data.appointment_id || null,
+          data.payment_id || null,
+          invoice_number,
+          data.amount,
+          tax_amount,
+          total_amount,
+          'paid',
+          due_date,
+          new Date()
+        ]
+      );
+      
+      console.log('✅ Facture créée automatiquement:', invoice_number);
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la création automatique de la facture:', error);
+  }
+}
+
+// ==================== DÉMARRAGE DU SERVEUR ====================
+
 async function startServer() {
   try {
+    // Initialiser la base de données
     await initDatabase();
+    
+    // Connecter à RabbitMQ
+    try {
+      await connectRabbitMQ();
+      
+      // S'abonner aux événements
+      await consumeQueue('report_generation', handleInspectionCompleted);
+      await consumeQueue('invoice_creation', handlePaymentSucceeded);
+      
+      console.log('✅ Abonné aux événements RabbitMQ');
+    } catch (rabbitmqError) {
+      console.error('⚠️  RabbitMQ non disponible, le service fonctionnera sans événements:', rabbitmqError.message);
+    }
+    
+    // Démarrer le serveur HTTP
     app.listen(PORT, () => {
       console.log(`📄 Report Service running on port ${PORT}`);
+      console.log(`📊 Features: PDF Generation, Email Sending, RabbitMQ Integration`);
+      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error('❌ Erreur lors du démarrage du serveur:', error);
     process.exit(1);
   }
 }
+
+// Gestion de l'arrêt gracieux
+process.on('SIGTERM', async () => {
+  console.log('⚠️  SIGTERM reçu, arrêt gracieux...');
+  const { closeConnection } = require('./messaging/rabbitmq');
+  await closeConnection();
+  await pool.end();
+  process.exit(0);
+});
 
 startServer();
